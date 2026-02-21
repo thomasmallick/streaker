@@ -33,19 +33,19 @@ def remove_streaks(image_path, output_path):
     for x in candidates.tolist():
         residual = l_chan[:, x] - 0.5 * (l_chan[:, x - 1] + l_chan[:, x + 1])
         r_med = float(np.median(residual))
-        if abs(r_med) < 0.3:  # More sensitive for faint streaks
+        if abs(r_med) < 0.8:  # More conservative - only strong streaks
             continue
-        strong = np.abs(residual) > 0.3  # More sensitive for faint streaks
+        strong = np.abs(residual) > 0.8  # More conservative - only strong streaks
         if not np.any(strong):
             continue
         same_sign = (np.sign(residual) == np.sign(r_med)) & strong
-        if float(np.mean(same_sign)) < 0.25:  # More lenient for partial streaks
+        if float(np.mean(same_sign)) < 0.40:  # More conservative - require consistency
             continue
         
         # Check if the streak covers a reasonable portion of the height
         strong_rows = np.sum(strong)
         height_ratio = strong_rows / h
-        if height_ratio < 0.2:  # At least 20% of image height
+        if height_ratio < 0.3:  # Require more of the column to be affected
             continue
             
         good_cols.append(x)
