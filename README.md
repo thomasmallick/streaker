@@ -10,6 +10,8 @@ This script identifies thin vertical streaks caused by scanner sensor imperfecti
 - **Only the thin streak columns are altered** - surrounding content remains unchanged
 - **Fixed images are logged** for manual verification
 - **Color information is preserved** through LAB color space processing
+- **Integrated validation** confirms minimal changes
+- **Visual heatmaps** show exactly what was modified
 
 ## Features
 
@@ -17,6 +19,8 @@ This script identifies thin vertical streaks caused by scanner sensor imperfecti
 - **Selective processing**: Only writes output files for images with detected streaks
 - **LAB color space**: Works on luminance channel only, preserving color information
 - **Conservative detection**: Uses statistical outlier detection to avoid false positives
+- **Integrated validation**: Quantitative analysis of changes and color preservation
+- **Visual heatmaps**: Red-highlighted difference maps showing modified pixels
 - **Simple logging**: Lists only fixed filenames for easy verification
 
 ## Requirements
@@ -24,11 +28,22 @@ This script identifies thin vertical streaks caused by scanner sensor imperfecti
 - Python 3.7+
 - OpenCV (`opencv-python`)
 - NumPy
+- Pipenv (recommended)
 
 ### Installation
 
+#### Using Pipenv (Recommended)
+
+```bash
+pipenv install
+pipenv run python streaker.py
+```
+
+#### Manual Installation
+
 ```bash
 pip install opencv-python numpy
+python streaker.py
 ```
 
 ## Usage
@@ -36,7 +51,7 @@ pip install opencv-python numpy
 ### Basic Usage
 
 ```bash
-python streaker.py
+pipenv run python streaker.py
 ```
 
 The script will:
@@ -44,16 +59,33 @@ The script will:
 2. Detect vertical scanner streaks
 3. Fix only images with detected streaks
 4. Save corrected images to `../data/output/`
-5. Print a summary of fixed filenames
+5. Generate visual heatmaps to `../data/diff_heatmaps/`
+6. Run validation analysis
+7. Print a summary of fixed filenames and validation results
 
 ### Output Example
 
 ```
+=== STREAK REMOVAL PROCESSING ===
 FIXED: 1990s_2000s_MattChildhood_0043_a.jpg
 FIXED: 2002_YellowstoneTrip_0109_a.jpg
 Fixed images: 2
 - 1990s_2000s_MattChildhood_0043_a.jpg
 - 2002_YellowstoneTrip_0109_a.jpg
+
+=== VISUAL DIFFERENCE HEATMAPS ===
+📸 1990s_2000s_MattChildhood_0043_a.jpg: 45,606 pixels actually changed (0.740%)
+   Heatmap saved: diff_1990s_2000s_MattChildhood_0043_a.jpg
+📸 2002_YellowstoneTrip_0109_a.jpg: 24,338 pixels actually changed (0.282%)
+   Heatmap saved: diff_2002_YellowstoneTrip_0109_a.jpg
+
+=== VALIDATION RESULTS ===
+📊 1990s_2000s_MattChildhood_0043_a.jpg:
+   Changed columns: 30
+   Pixels modified: 62,880 (1.02%)
+   Max L change per column: 27.3
+   ✓ Color channels preserved (A: 0.804, B: 0.796)
+   ✓ Changes are column-only
 ```
 
 ### Folder Structure
@@ -61,10 +93,13 @@ Fixed images: 2
 ```
 Streak-Removal-Script/
 ├── src/
-│   └── streaker.py          # Main script
+│   └── streaker.py          # Main script with integrated validation and heatmaps
 ├── data/
 │   ├── input/              # Source images
-│   └── output/             # Corrected images (auto-created)
+│   ├── output/             # Corrected images (auto-created)
+│   └── diff_heatmaps/     # Visual difference heatmaps (auto-created)
+├── Pipfile                 # Dependencies
+├── Pipfile.lock           # Locked dependency versions
 └── README.md
 ```
 
@@ -82,14 +117,16 @@ Streak-Removal-Script/
 
 1. **LAB Color Space**: Converts image to LAB for perceptually uniform luminance
 2. **Column Interpolation**: Replaces each streak column with interpolation of neighboring columns
-3. **Color Preservation**: Only modifies L channel, A/B channels remain unchanged
-4. **Clamping**: Ensures output values stay within valid LAB range
+3. **Row-Specific Correction**: Only modifies rows where streak is actually present
+4. **Color Preservation**: Only modifies L channel, A/B channels remain unchanged
+5. **Clamping**: Ensures output values stay within valid LAB range
 
 ### Detection Parameters
 
-- **Threshold**: `max(2.0, 4.0 * sigma)` - Statistical outlier threshold
-- **Residual Threshold**: `1.0` - Minimum median residual difference
-- **Consistency**: `60%` - Minimum percentage of pixels with consistent bias
+- **Threshold**: `max(1.5, 3.0 * sigma)` - Statistical outlier threshold
+- **Residual Threshold**: `0.8` - Minimum median residual difference (conservative)
+- **Consistency**: `40%` - Minimum percentage of pixels with consistent bias
+- **Height Coverage**: `30%` - Minimum portion of column height affected
 - **Max Width**: `8` pixels - Maximum streak width to process
 
 ## Customization
@@ -100,9 +137,10 @@ If the script misses faint streaks, you can adjust these parameters in `streaker
 
 ```python
 # More sensitive detection (lower values)
-thresh = max(2.0, 3.0 * sigma)  # Was 4.0 * sigma
-if abs(r_med) < 0.5:           # Was 1.0
-if float(np.mean(same_sign)) < 0.40:  # Was 0.60
+if abs(r_med) < 0.5:           # Was 0.8
+strong = np.abs(residual) > 0.5  # Was 0.8
+if float(np.mean(same_sign)) < 0.25:  # Was 0.40
+if height_ratio < 0.2:       # Was 0.3
 ```
 
 ### Changing Input/Output Paths
@@ -113,7 +151,10 @@ Modify the paths in the `main()` function:
 def main():
     input_folder = "path/to/your/input"
     output_folder = "path/to/your/output"
+    diff_folder = "path/to/your/diff_heatmaps"
     batch_process_images(input_folder, output_folder)
+    generate_heatmaps(input_folder, output_folder, diff_folder)
+    validate_changes(input_folder, output_folder)
 ```
 
 ## Supported Formats
@@ -170,6 +211,12 @@ Linear interpolation between neighboring columns:
 - Preserves natural gradients
 - Avoids artificial edges
 - Maintains image continuity
+
+### Validation and Heatmaps
+
+- **Validation**: Quantitative analysis ensuring column-only changes and color preservation
+- **Heatmaps**: Visual red-highlighted maps showing exactly which pixels were modified
+- **Thresholds**: Validation uses `> 1.0` L channel difference for significance
 
 ## License
 
