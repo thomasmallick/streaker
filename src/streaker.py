@@ -273,7 +273,7 @@ def batch_process_images(input_folder, output_folder):
 def main():
     input_folder = "../data/input"  # Change to your folder path
     output_folder = "../data/output"
-    diff_folder = "../data/differences"
+    diff_folder = "../data/diff_heatmaps"
     
     print("=== STREAK REMOVAL PROCESSING ===")
     batch_process_images(input_folder, output_folder)
